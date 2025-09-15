@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Site & Business Management</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    body { padding-top: 70px; }
+    .top-bar { position: fixed; top: 0; width: 100%; z-index: 1000; }
+    .form-container { max-width: 1200px; margin: auto; padding: 20px; }
+    .btn-save { display: block; margin: 20px auto; width: 200px; }
+    .table-actions button { margin-right: 5px; }
+    .logo-preview { max-height: 80px; margin-top: 10px; }
+    .tab-pane { padding-top: 20px; }
+</style>
+</head>
+<body>
+
+<!-- Top Navigation Bar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary top-bar">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">👷 Labor Management</a>
+        <div class="ms-auto d-flex align-items-center flex-wrap">
+            <button class="btn btn-outline-light me-2 mb-1" onclick="window.location.href='/labor_register'">👷 Labor Register</button>
+            <button class="btn btn-outline-light me-2 mb-1" onclick="window.location.href='/attendance'">🗓️ Attendance</button>
+            <button class="btn btn-outline-light me-2 mb-1" onclick="window.location.href='/payment'">💵 Payment</button>
+            <button class="btn btn-outline-light me-2 mb-1" onclick="window.location.href='/site_material'">🚚 Site Materials</button>
+            <button class="btn btn-outline-light me-2 mb-1" onclick="window.location.href='/site_expenses'">💰 Site Expenses</button>
+            <button class="btn btn-outline-light me-2 mb-1" onclick="window.location.href='/reports'">📊 Reports</button>
+            <button class="btn btn-outline-light mb-1" onclick="logout()">🚪 Logout</button>
+        </div>
+    </div>
+</nav>
+
+<div class="form-container">
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs" id="managementTabs" role="tablist">
+        {% if session['role'] == 'admin' %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="sites-tab" data-bs-toggle="tab" data-bs-target="#sites" type="button" role="tab">🏗️ Manage Sites</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab">👤 Users</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="assign-tab" data-bs-toggle="tab" data-bs-target="#assign" type="button" role="tab">🔗 Assign Sites</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="business-tab" data-bs-toggle="tab" data-bs-target="#business" type="button" role="tab">💼 Business Settings</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="labor-tab" data-bs-toggle="tab" data-bs-target="#labor" type="button" role="tab">👷 Labor Settings</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="projects-tab" data-bs-toggle="tab" data-bs-target="#projects" type="button" role="tab">📊 Projects</button>
+            </li>
+        {% else %}
+            <!-- Engineers/Viewers see only Labor tab -->
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="labor-tab" data-bs-toggle="tab" data-bs-target="#labor" type="button" role="tab">👷 Labor Settings</button>
+            </li>
+        {% endif %}
+    </ul>
+
+    <!-- Tabs Content -->
+    <div class="tab-content" id="managementTabsContent">
+
+        {% if session['role'] == 'admin' %}
+            <!-- Manage Sites Tab -->
+            <div class="tab-pane fade show active" id="sites" role="tabpanel" aria-labelledby="sites-tab">
+                <form id="siteForm" class="row g-3 mb-3">
+                    <div class="col-md-6"><input type="text" class="form-control" id="site_name" placeholder="Site Name" required></div>
+                    <div class="col-md-6"><input type="text" class="form-control" id="site_location" placeholder="Location"></div>
+                    <div class="col-md-6"><input type="date" class="form-control" id="site_start_date"></div>
+                    <div class="col-md-6"><input type="date" class="form-control" id="site_end_date"></div>
+                    <div class="col-md-6"><input type="number" class="form-control" id="site_budget" placeholder="Budget (₹)" min="0" step="0.01">        </div>
+                    <div class="col-12"><button type="button" class="btn btn-success btn-save" onclick="saveSite()">💾 Save Site</button></div>
+                </form>
+                <div id="site_message"></div>
+                <table class="table table-bordered table-striped">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Name</th><th>Location</th><th>Start Date</th><th>End Date</th><th>Budget (₹)</th><th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="site_list"></tbody>
+                </table>
+            </div>
+
+            <!-- Users Tab -->
+            <div class="tab-pane fade" id="users" role="tabpanel" aria-labelledby="users-tab">
+                <form id="userForm" class="row g-3 mb-3">
+                    <div class="col-md-4"><input type="text" class="form-control" id="user_name" placeholder="Full Name" required></div>
+                    <div class="col-md-4"><input type="email" class="form-control" id="user_email" placeholder="Email" required></div>
+                    <div class="col-md-2">
+                        <select class="form-control" id="user_role" required>
+                            <option value="">Select Role</option>
+                            <option value="admin">Admin</option>
+                            <option value="engineer">Engineer</option>
+                            <option value="viewer">Viewer</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2"><input type="password" class="form-control" id="user_password" placeholder="Password" required></div>
+                    <div class="col-12"><button type="button" class="btn btn-success btn-save" onclick="saveUser()">💾 Save User</button></div>
+                </form>
+                <div id="user_message"></div>
+                <table class="table table-bordered table-striped">
+                    <thead class="table-light">
+                        <tr><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody id="user_list"></tbody>
+                </table>
+            </div>
+
+            <!-- Assign Sites Tab -->
+            <div class="tab-pane fade" id="assign" role="tabpanel" aria-labelledby="assign-tab">
+                <h3>Assign Sites to User</h3>
+                <label for="assign_user">Select User:</label>
+                <select id="assign_user" class="form-select mb-2">
+                    <option value="">-- Select User --</option>
+                </select>
+                <div id="assign_sites" class="mb-3"></div>
+                <button type="button" class="btn btn-success" onclick="saveAssignments()">💾 Save Assignments</button>
+                <div id="assign_message" class="mt-2"></div>
+            </div>
+
+           <!-- Business Settings Tab -->
+<div class="tab-pane fade" id="business" role="tabpanel" aria-labelledby="business-tab">
+    <form id="businessForm" class="row g-3 mb-3" enctype="multipart/form-data">
+        <div class="col-md-6">
+            <input type="text" class="form-control" id="business_name" name="name" placeholder="Business Name" required>
+        </div>
+        <div class="col-md-6">
+            <input type="text" class="form-control" id="business_address" name="address" placeholder="Address">
+        </div>
+        <div class="col-md-6">
+            <input type="text" class="form-control" id="business_phone" name="phone" placeholder="Phone">
+        </div>
+        <div class="col-md-6">
+            <input type="email" class="form-control" id="business_email" name="email" placeholder="Email">
+        </div>
+        <div class="col-md-6">
+            <input type="text" class="form-control" id="business_gst" name="gst_number" placeholder="GST Number">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Upload Logo</label>
+            <input type="file" class="form-control" id="business_logo" name="logo" accept="image/*" onchange="previewLogo(event)">
+            <img id="logo_preview" class="logo-preview" style="max-width:100px; margin-top:10px;"/>
+        </div>
+        <div class="col-12">
+            <button type="button" class="btn btn-success btn-save" onclick="saveBusiness()">💾 Save Business Info</button>
+        </div>
+    </form>
+    <div id="business_message" class="mt-2"></div>
+</div>
+        {% endif %}
+
+        <!-- Labor Settings Tab -->
+        <div class="tab-pane fade {% if session['role'] != 'admin' %}show active{% endif %}" id="labor" role="tabpanel" aria-labelledby="labor-tab">
+            <form id="laborForm" class="row g-3 mb-3">
+                <div class="col-md-3">
+                    <select class="form-control" id="labor_site" required>
+                        <option value="">Select Site</option>
+                    </select>
+                </div>
+                <div class="col-md-3"><input type="text" class="form-control" id="labor_name" placeholder="Name" required></div>
+                <div class="col-md-3"><input type="text" class="form-control" id="labor_phone" placeholder="Phone"></div>
+                <div class="col-md-2"><input type="text" class="form-control" id="labor_role" placeholder="Role"></div>
+                <div class="col-md-2"><input type="number" class="form-control" id="labor_wages" placeholder="Wages" required></div>
+                <div class="col-md-2"><input type="number" class="form-control" id="labor_age" placeholder="Age"></div>
+                <div class="col-md-4"><input type="text" class="form-control" id="labor_address" placeholder="Address"></div>
+                <div class="col-md-2"><input type="text" class="form-control" id="labor_aadhaar" placeholder="Aadhaar"></div>
+                <div class="col-md-2"><input type="text" class="form-control" id="labor_upi" placeholder="UPI ID"></div>
+                <div class="col-md-2"><input type="text" class="form-control" id="labor_bank" placeholder="Bank Account"></div>
+                <div class="col-md-2"><input type="text" class="form-control" id="labor_emergency" placeholder="Emergency Contact"></div>
+                <div class="col-12">
+                    <button type="button" class="btn btn-success btn-save" onclick="saveLabor()">💾 Save Labor</button>
+                </div>
+            </form>
+            <div id="labor_message"></div>
+            <table class="table table-bordered table-striped">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th><th>Phone</th><th>Role</th><th>Wages</th><th>Age</th>
+                        <th>Address</th><th>Aadhaar</th><th>UPI</th><th>Bank</th><th>Emergency</th><th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="labor_list"></tbody>
+            </table>
+        </div>
+        <!-- Projects Tab -->
+  <div class="tab-pane fade" id="projects" role="tabpanel" aria-labelledby="projects-tab">
+    <div class="container my-4">
+      <h3 class="mb-4">Projects Overview</h3>
+      <div id="projects-container" class="row g-4">
+        <!-- Projects will load dynamically here -->
+      </div>
+    </div>
+  </div>
+</div>
+    </div>
+</div>
+
+<script>
+// ---------- ALERT ----------
+function showAlert(containerId, message, type="success"){
+    document.getElementById(containerId).innerHTML =
+        `<div class="alert alert-${type} text-center">${message}</div>`;
+}
+
+async function loadProjects() {
+  const res = await fetch('/get_projects'); // backend API returning sites with budget + expenses
+  const projects = await res.json();
+
+  const container = document.getElementById('projects-container');
+  container.innerHTML = "";
+
+  projects.forEach((p, idx) => {
+    const cardId = `chart_${idx}`;
+    const remaining = p.budget - (p.materials + p.labor + p.expenses);
+
+    container.innerHTML += `
+      <div class="col-md-6">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <h5>${p.name} <span class="badge ${remaining >= 0 ? 'bg-success' : 'bg-danger'}">${remaining >= 0 ? 'Ongoing' : 'Over Budget'}</span></h5>
+            <p><strong>Budget:</strong> ₹${p.budget.toLocaleString()}</p>
+            <p><strong>Total Spent:</strong> ₹${(p.materials + p.labor + p.expenses).toLocaleString()}</p>
+            <canvas id="${cardId}" height="180"></canvas>
+            <p class="mt-2"><strong>Remaining:</strong> ₹${remaining.toLocaleString()}</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Draw pie chart
+    setTimeout(() => {
+      new Chart(document.getElementById(cardId), {
+        type: 'pie',
+        data: {
+          labels: ['Materials', 'Labor ', 'Other Expenses', 'Remaining'],
+          datasets: [{
+            data: [p.materials, p.labor, p.expenses, remaining > 0 ? remaining : 0],
+            backgroundColor: ['#36a2eb', '#4caf50', '#ff9800', '#9e9e9e']
+          }]
+        }
+      });
+    }, 200);
+  });
+}
+
+// Load when Projects tab is opened
+document.getElementById('projects-tab').addEventListener('shown.bs.tab', loadProjects);
+
+// ---------- SITES ----------
+function loadSites() {
+    fetch("/get_sites")
+        .then(r => r.json())
+        .then(sites => {
+            const tbody = document.getElementById("site_list");
+            tbody.innerHTML = "";
+
+            if (!sites || sites.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No sites found</td></tr>`;
+                return;
+            }
+
+            sites.forEach(site => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+        <td>${site.name || ""}</td>
+        <td>${site.location || ""}</td>
+        <td>${site.start_date || ""}</td>
+        <td>${site.end_date || ""}</td>
+        <td>₹${site.budget ? site.budget.toLocaleString() : 0}</td>
+        <td>
+            <button class="btn btn-sm btn-primary me-1" onclick="editSite(${site.id})">✏️ Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteSite(${site.id})">🗑️ Delete</button>
+        </td>
+    `;
+    tbody.appendChild(tr);
+});
+
+        })
+        .catch(err => {
+            console.error("Error loading sites:", err);
+            showAlert("site_message", "Failed to load sites", "danger");
+        });
+}
+function editSite(id){
+    fetch(`/get_site/${id}`)
+    .then(r => r.json())
+    .then(site => {
+        if (!site || site.success === false) {
+            showAlert('site_message', site.message || 'Site not found', 'danger');
+            return;
+        }
+
+        document.getElementById('site_name').value = site.name;
+        document.getElementById('site_location').value = site.location || '';
+        document.getElementById('site_start_date').value = site.start_date || '';
+        document.getElementById('site_end_date').value = site.end_date || '';
+        document.getElementById('site_budget').value = site.budget || 0;   // ✅ preload budget
+
+        document.querySelector('#siteForm .btn-save').onclick = function() {
+            fetch(`/update_site/${id}`, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    name: document.getElementById('site_name').value,
+                    location: document.getElementById('site_location').value,
+                    start_date: document.getElementById('site_start_date').value,
+                    end_date: document.getElementById('site_end_date').value,
+                    budget: parseFloat(document.getElementById('site_budget').value) || 0   // ✅ send budget
+                })
+            })
+            .then(r => r.json())
+            .then(resp => {
+                showAlert('site_message', resp.message, resp.success ? 'success' : 'danger');
+                document.getElementById('siteForm').reset();
+                document.querySelector('#siteForm .btn-save').onclick = saveSite;
+                loadSites();
+            });
+        }
+    });
+}
+
+
+function deleteSite(id){
+    if(!confirm('Delete this site?')) return;
+
+    fetch(`/delete_site/${id}`, {
+        method: 'POST'
+    })
+    .then(r => r.json())
+    .then(resp => {
+        showAlert('site_message', resp.message, resp.success ? 'success' : 'danger');
+        loadSites();
+    });
+} // <-- properly close deleteSite
+
+function saveSite(){
+    const name = document.getElementById('site_name').value.trim();
+    if(!name){
+        showAlert('site_message', 'Site name is required', 'danger');
+        return;
+    }
+
+    const payload = {
+        name,
+        location: document.getElementById('site_location').value.trim(),
+        start_date: document.getElementById('site_start_date').value,
+        end_date: document.getElementById('site_end_date').value
+    };
+
+    fetch('/save_site', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(resp => {
+        showAlert('site_message', resp.message, resp.success ? 'success' : 'danger');
+        if(resp.success){
+            document.getElementById('siteForm').reset();
+            loadSites();
+        }
+    });
+}function saveSite(){
+    const name = document.getElementById('site_name').value.trim();
+    if(!name){
+        showAlert('site_message', 'Site name is required', 'danger');
+        return;
+    }
+
+    const payload = {
+        name,
+        location: document.getElementById('site_location').value.trim(),
+        start_date: document.getElementById('site_start_date').value,
+        end_date: document.getElementById('site_end_date').value,
+        budget: parseFloat(document.getElementById('site_budget').value || 0)
+    };
+
+    fetch('/save_site', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(resp => {
+        showAlert('site_message', resp.message, resp.success ? 'success' : 'danger');
+        if(resp.success){
+            document.getElementById('siteForm').reset();
+            loadSites();
+        }
+    });
+}
+
+
+// ---------- USERS ----------
+function loadUsers(){
+    fetch('/get_users').then(r=>r.json()).then(data=>{
+        const tbody=document.getElementById('user_list'); tbody.innerHTML='';
+        data.forEach(u=>{
+            tbody.innerHTML+=`<tr>
+                <td>${u.username}</td><td>${u.email}</td><td>${u.role}</td>
+                <td class="table-actions">
+                    <button class="btn btn-sm btn-primary" onclick="editUser(${u.id})">✏️</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})">🗑️</button>
+                </td>
+            </tr>`;
+        });
+        const assignUser=document.getElementById('assign_user'); assignUser.innerHTML='<option value="">-- Select User --</option>';
+        data.forEach(u=>assignUser.innerHTML+=`<option value="${u.id}">${u.username} (${u.role})</option>`);
+    });
+}
+function saveUser(){
+    const username=document.getElementById('user_name').value.trim();
+    const email=document.getElementById('user_email').value.trim();
+    const role=document.getElementById('user_role').value;
+    const password=document.getElementById('user_password').value.trim();
+    if(!username||!email||!role||!password){ showAlert('user_message','All fields required','danger'); return; }
+    const payload={username,email,role,password};
+    fetch('/save_user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    .then(r=>r.json()).then(d=>{
+        showAlert('user_message',d.message,d.success?'success':'danger');
+        if(d.success){ document.getElementById('userForm').reset(); loadUsers(); }
+    });
+}
+
+
+function editUser(id){ alert('Edit User feature coming soon: '+id); }
+function deleteUser(id){ if(!confirm('Delete user?')) return; fetch('/delete_user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}).then(r=>r.json()).then(d=>{ showAlert('user_message',d.message,d.success?'success':'danger'); loadUsers(); }); }
+
+// ---------- ASSIGN SITES ----------
+function loadAssignSites(){
+    fetch("/get_sites")   // endpoint should return all sites for client
+    .then(r=>r.json())
+    .then(data=>{
+        const container = document.getElementById("assign_sites");
+        container.innerHTML = "";
+
+        if(data.length === 0){
+            container.innerHTML = "<p>No sites available.</p>";
+            return;
+        }
+
+        data.forEach(site=>{
+            const div = document.createElement("div");
+            div.classList.add("form-check");
+            div.innerHTML = `
+                <input class="form-check-input" type="checkbox" value="${site.id}" id="site_${site.id}">
+                <label class="form-check-label" for="site_${site.id}">
+                    ${site.name} (${site.location})
+                </label>
+            `;
+            container.appendChild(div);
+        });
+    });
+}
+
+
+function saveAssignments(){
+    const user_id = document.getElementById('assign_user').value;
+    if(!user_id){
+        showAlert('assign_message','Select user','danger');
+        return;
+    }
+    const sites = [];
+    document.querySelectorAll('#assign_sites input[type=checkbox]:checked').forEach(c => sites.push(c.value));
+
+    fetch('/assign_sites',{
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({user_id, sites})
+    })
+    .then(r => r.json())
+    .then(d => {
+        showAlert('assign_message', d.message, d.success ? 'success' : 'danger');
+    });
+}
+
+// ---------- BUSINESS ----------
+function previewLogo(event) {
+    const preview = document.getElementById('logo_preview');
+    preview.src = URL.createObjectURL(event.target.files[0]);
+}
+function loadBusiness(){
+    fetch('/get_business').then(r=>r.json()).then(d=>{
+        document.getElementById('business_name').value=d.name||'';
+        document.getElementById('business_address').value=d.address||'';
+        document.getElementById('business_phone').value=d.phone||'';
+        document.getElementById('business_email').value=d.email||'';
+        document.getElementById('business_gst').value=d.gst_number||'';
+        if(d.logo) document.getElementById('logo_preview').src='/static/uploads/'+d.logo;
+    });
+}
+// ---------- BUSINESS ----------
+let editingBusiness = false;
+
+function editBusiness(){
+    fetch('/get_business').then(r=>r.json()).then(d=>{
+        editingBusiness = true;
+        document.getElementById('business_name').value=d.name||'';
+        document.getElementById('business_address').value=d.address||'';
+        document.getElementById('business_phone').value=d.phone||'';
+        document.getElementById('business_email').value=d.email||'';
+        document.getElementById('business_gst').value=d.gst_number||'';
+        if(d.logo) document.getElementById('logo_preview').src='/static/uploads/'+d.logo;
+        document.querySelector('#businessForm .btn-save').textContent = '💾 Update Business';
+    });
+}
+
+// Save business info
+function saveBusiness() {
+    const form = document.getElementById('businessForm');
+    const formData = new FormData(form);
+
+    // Basic validation
+    if (!formData.get('name')) {
+        alert("Business name is required");
+        return;
+    }
+
+    fetch('/update_business', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        const msgDiv = document.getElementById('business_message');
+        if (data.success) {
+            msgDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+        } else {
+            msgDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+        }
+    })
+    .catch(err => {
+        document.getElementById('business_message').innerHTML = `<div class="alert alert-danger">Error saving business info: ${err}</div>`;
+    });
+}
+
+// ---------- LABOR ----------
+function loadLaborSites(){
+    fetch('/get_sites')
+    .then(r=>r.json())
+    .then(data=>{
+        const select = document.getElementById('labor_site');
+        select.innerHTML = '<option value="">Select Site</option>';
+
+        data.forEach(s=>{
+            select.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+        });
+
+        fetch('/get_session').then(r=>r.json()).then(sess=>{
+            const role = sess.role;
+
+            if(role === "engineer" || role === "viewer"){
+                if(data.length > 0){
+                    // ✅ Auto-select first assigned site
+                    select.value = data[0].id;
+                    loadLabors();
+                } else {
+                    // No sites assigned
+                    document.getElementById('labor_list').innerHTML =
+                        '<tr><td colspan="11" class="text-center">No sites assigned to you</td></tr>';
+                }
+            }
+            else if(role === "admin"){
+                // Admin keeps dropdown free → can pick or see all by default
+                loadLabors();
+            }
+        });
+    });
+}
+
+function loadLabors(){
+    const site_id = document.getElementById('labor_site').value;
+
+    fetch('/get_session').then(r=>r.json()).then(sess=>{
+        const role = sess.role;
+
+        if(role === 'admin' && !site_id){
+            // ✅ Admin → show all labors if no site selected
+            fetch('/get_labors')
+            .then(r=>r.json())
+            .then(data=>{
+                renderLaborTable(data);
+            });
+            return;
+        }
+
+        if(!site_id){
+            // Engineer or viewer must pick a site
+            document.getElementById('labor_list').innerHTML =
+                '<tr><td colspan="11" class="text-center">Select a site to view labors</td></tr>';
+            return;
+        }
+
+        // Site selected → filter labors
+        fetch(`/get_labors?site_id=${site_id}`)
+        .then(r=>r.json())
+        .then(data=>{
+            renderLaborTable(data);
+        });
+    });
+}
+
+// 🔄 Auto-reload labors when site changes
+document.addEventListener("DOMContentLoaded", function(){
+    document.getElementById('labor_site').addEventListener('change', loadLabors);
+});
+
+function renderLaborTable(data){
+    const tbody = document.getElementById('labor_list');
+    tbody.innerHTML = '';
+    if(data.length === 0){
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center">No labors found</td></tr>';
+    } else {
+        data.forEach(l=>{
+            tbody.innerHTML += `<tr>
+                <td>${l.name}</td><td>${l.phone}</td><td>${l.role||''}</td><td>${l.wages}</td>
+                <td>${l.age||''}</td><td>${l.address||''}</td><td>${l.aadhaar||''}</td>
+                <td>${l.upi||''}</td><td>${l.bank||''}</td><td>${l.emergency||''}</td>
+                <td class="table-actions">
+                    <button class="btn btn-sm btn-primary" onclick="editLabor(${l.id})">✏️</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteLabor(${l.id})">🗑️</button>
+                </td>
+            </tr>`;
+        });
+    }
+}
+// Save or update labor
+function saveLabor(){
+    const site_id=document.getElementById('labor_site').value;
+    if(!site_id){ showAlert('labor_message','Select a site','danger'); return; }
+    const payload={
+        site_id,
+        name:document.getElementById('labor_name').value.trim(),
+        phone:document.getElementById('labor_phone').value,
+        role:document.getElementById('labor_role').value,
+        wages:parseFloat(document.getElementById('labor_wages').value)||0,
+        age:parseInt(document.getElementById('labor_age').value)||null,
+        address:document.getElementById('labor_address').value,
+        aadhaar:document.getElementById('labor_aadhaar').value,
+        upi:document.getElementById('labor_upi').value,
+        bank:document.getElementById('labor_bank').value,
+        emergency:document.getElementById('labor_emergency').value
+    };
+    const url=editingLaborId?`/update_labor/${editingLaborId}`:'/save_labor';
+    fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    .then(r=>r.json()).then(d=>{
+        showAlert('labor_message',d.message,d.success?'success':'danger');
+        document.getElementById('laborForm').reset();
+        editingLaborId=null;
+        document.querySelector('#laborForm .btn-save').textContent='💾 Save Labor';
+        loadLabors();
+    });
+}
+
+// Edit labor
+function editLabor(id){
+    fetch(`/get_labor/${id}`).then(r=>r.json()).then(l=>{
+        editingLaborId = id;
+        document.getElementById('labor_site').value = l.site_id;
+        document.getElementById('labor_name').value = l.name;
+        document.getElementById('labor_phone').value = l.phone;
+        document.getElementById('labor_role').value = l.role;
+        document.getElementById('labor_wages').value = l.wages;
+        document.getElementById('labor_age').value = l.age;
+        document.getElementById('labor_address').value = l.address;
+        document.getElementById('labor_aadhaar').value = l.aadhaar;
+        document.getElementById('labor_upi').value = l.upi;
+        document.getElementById('labor_bank').value = l.bank;
+        document.getElementById('labor_emergency').value = l.emergency;
+        document.querySelector('#laborForm .btn-save').textContent = '💾 Update Labor';
+    });
+}
+
+// Delete labor
+function deleteLabor(id){
+    if(!confirm('Delete labor?')) return;
+    fetch('/delete_labor',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({id})
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        showAlert('labor_message',d.message,d.success?'success':'danger');
+        loadLabors();
+    });
+}
+
+// ---------- LOGOUT ----------
+function logout(){ fetch('/logout',{method:'POST'}).then(()=>window.location='/login'); }
+
+// ---------- INITIAL LOAD ----------
+window.onload = function(){
+    fetch('/get_session').then(r=>r.json()).then(sess=>{
+        const role = sess.role;
+
+        if(role === 'admin'){
+            // Admin → load everything
+            loadSites();
+            loadUsers();
+            loadBusiness();
+            loadAssignSites();
+            editBusiness();
+            loadLaborSites();
+        } else {
+            // Engineer/Viewer → only load their labor sites
+            loadLaborSites();
+        }
+    });
+};
+
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/static/js/supabase_config.js"></script> <!-- centralized config -->
+</body>
+</html>

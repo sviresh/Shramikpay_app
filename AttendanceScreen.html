@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekly Attendance</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    body { padding-top: 70px; }
+    .top-bar { position: fixed; top: 0; width: 100%; z-index: 1000; }
+    .attendance-container { max-width: 1400px; margin: auto; padding: 20px; }
+    table.attendance-table { width: 100%; table-layout: fixed; }
+    table.attendance-table th, table.attendance-table td {
+        text-align: center; vertical-align: middle; border: 1px solid #dee2e6; height: 60px;
+    }
+    .btn-save { display: block; margin: 20px auto; width: 200px; }
+    #message { text-align: center; margin-top: 10px; font-weight: bold; }
+    .extra-hours-input { width: 60px; font-size: 0.8rem; margin-top: 3px; text-align: center; }
+    select.status-input { width: 70px; text-align: center; }
+    @media(max-width: 768px) {
+        .top-bar .btn { font-size: 0.75rem; padding: 0.25rem 0.5rem; }
+        table.attendance-table th, table.attendance-table td { font-size: 0.75rem; height: 50px; }
+    }
+</style>
+</head>
+<body>
+
+<!-- Top Navigation Bar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary top-bar">
+    <div class="container-fluid flex-wrap">
+        <a class="navbar-brand" href="#">🗓️ Weekly Attendance</a>
+        <div class="ms-auto d-flex flex-wrap align-items-center gap-1">
+            <select id="siteSelect" class="form-select form-select-sm me-2">
+                {% for site in sites %}
+                <option value="{{ site.id }}" {% if site.id == current_site_id %}selected{% endif %}>
+                    {{ site.name }}
+                </option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/labor_register'">👷 Labor Register</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/attendance'">🗓️ Attendance</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/payment'">💵 Payment</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/site_material'">🚚 Site Materials</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/site_expenses'">💰 Site Expenses</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/reports'">📊 Reports</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/setup_site'">🏗️ Site Management</button>
+            <button class="btn btn-outline-light" onclick="logout()">🚪 Logout</button>
+        </div>
+    </div>
+</nav>
+
+<div class="attendance-container">
+
+    <div class="mb-2 text-center fw-bold text-secondary">
+        Tip: Use <strong>FD</strong> for Full Day (8 hrs), <strong>HD</strong> for Half Day (4 hrs), <strong>A</strong> for Absent.
+    </div>
+
+    <!-- Week navigation -->
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <button class="btn btn-outline-primary" onclick="changeWeek(-1)">« Previous Week</button>
+        <div class="d-flex align-items-center gap-2">
+            <label for="weekStartPicker" class="fw-bold text-secondary">Week Start:</label>
+            <input type="date" id="weekStartPicker" class="form-control form-control-sm"
+                   onchange="jumpToWeek(this.value)">
+        </div>
+        <h5 id="week_range" class="mb-0 fw-bold text-primary"></h5>
+        <button class="btn btn-outline-primary" onclick="changeWeek(1)">Next Week »</button>
+    </div>
+
+    <table class="table attendance-table table-bordered table-striped">
+        <thead class="table-light">
+            <tr id="headerRow">
+                <th>Labor Name</th>
+                <!-- Day headers filled by JS -->
+                <th>Total Hours</th>
+                <th>Update</th>
+                <th>Delete</th>
+            </tr>
+        </thead>
+        <tbody id="attendance_grid">
+        {% for labor in labors %}
+        <tr data-labor-id="{{ labor.id }}" data-site-id="{{ labor.site_id }}">
+            <td>
+                <input type="text" class="form-control form-control-sm labor-name"
+                       value="{{ labor.name }}" {% if role != 'admin' %}readonly{% endif %}>
+            </td>
+            {% for day_name in ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"] %}
+            <td>
+                <div class="d-flex flex-column align-items-center">
+                    <select class="form-select form-select-sm status-input mb-1"
+                            data-day="{{ day_name }}"
+                            data-original="{{ attendance_dict.get(labor.id, {}).get(day_name, {}).get('status','') }}">
+                        <option value="">--</option>
+                        <option value="FD" {% if attendance_dict.get(labor.id, {}).get(day_name, {}).get('status') == "FD" %}selected{% endif %}>FD</option>
+                        <option value="HD" {% if attendance_dict.get(labor.id, {}).get(day_name, {}).get('status') == "HD" %}selected{% endif %}>HD</option>
+                        <option value="A"  {% if attendance_dict.get(labor.id, {}).get(day_name, {}).get('status') == "A" %}selected{% endif %}>A</option>
+                    </select>
+                    <input type="number" step="0.25" min="0"
+                           class="form-control form-control-sm extra-hours-input"
+                           value="{{ attendance_dict.get(labor.id, {}).get(day_name, {}).get('extra_hours', 0) }}"
+                           data-original="{{ attendance_dict.get(labor.id, {}).get(day_name, {}).get('extra_hours', 0) }}"
+                           data-day="{{ day_name }}">
+                </div>
+            </td>
+            {% endfor %}
+            <td class="total-hours">0</td>
+            <td><button class="btn btn-sm btn-primary" onclick="updateLabor(this)">💾 Update</button></td>
+            <td><button class="btn btn-sm btn-danger" onclick="deleteLabor(this)">🗑️ Delete</button></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <button class="btn btn-success btn-save" onclick="saveAttendance()">💾 Save Attendance</button>
+    <div id="message"></div>
+</div>
+
+<script>
+// ---------- Week & Navigation ----------
+let currentStart = new Date();
+function formatDate(d){ return d.toISOString().split('T')[0]; }
+let currentWeekDates = []; // store exact dates for current week
+
+function renderDayHeaders(start){
+    const headerRow = document.getElementById("headerRow");
+    headerRow.innerHTML = "<th>Labor Name</th>";
+    currentWeekDates = [];
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
+        const dayDate = d.toISOString().split('T')[0]; // YYYY-MM-DD
+        currentWeekDates.push(dayDate);
+        headerRow.innerHTML += `<th>${dayName}<br>(${dayDate})</th>`;
+    }
+    headerRow.innerHTML += `<th>Total Hours</th><th>Update</th><th>Delete</th>`;
+
+    // Update all select and input data-day attributes
+    document.querySelectorAll("#attendance_grid tr").forEach(row => {
+        row.querySelectorAll("td").forEach((td, idx) => {
+            if (idx > 0 && idx <= 7) { // 7 days
+                const sel = td.querySelector("select.status-input");
+                const extra = td.querySelector("input.extra-hours-input");
+                if(sel) sel.dataset.day = currentWeekDates[idx - 1];
+                if(extra) extra.dataset.day = currentWeekDates[idx - 1];
+            }
+        });
+    });
+}
+
+function updateWeekHeader(){
+    const start=new Date(currentStart);
+    const end=new Date(start);end.setDate(start.getDate()+6);
+    document.getElementById("week_range").innerText=`${formatDate(start)} → ${formatDate(end)}`;
+    document.getElementById("weekStartPicker").value=formatDate(start);
+    renderDayHeaders(start);
+}
+function changeWeek(o){currentStart.setDate(currentStart.getDate()+o*7);updateWeekHeader();}
+function jumpToWeek(d){if(!d)return;currentStart=new Date(d);updateWeekHeader();}
+
+// ---------- Hours Calculation ----------
+function calculateWeeklyHours(){
+    document.querySelectorAll("#attendance_grid tr").forEach(row=>{
+        let total=0;
+        row.querySelectorAll(".status-input").forEach(sel=>{
+            const st=sel.value.toUpperCase();
+            if(st==="FD")total+=8;if(st==="HD")total+=4;
+        });
+        row.querySelectorAll(".extra-hours-input").forEach(inp=>{
+            total+=parseFloat(inp.value)||0;
+        });
+        row.querySelector(".total-hours").innerText=total.toFixed(2);
+    });
+}
+document.addEventListener("input",e=>{
+    if(e.target.classList.contains("status-input")||e.target.classList.contains("extra-hours-input")){
+        calculateWeeklyHours();
+    }
+});
+
+// ---------- Save All Attendance ----------
+function saveAttendance() {
+    let data = [];
+    const rows = document.querySelectorAll("#attendance_grid tr");
+    rows.forEach(row => {
+        const laborId = row.dataset.laborId;
+        const siteId = row.dataset.siteId;
+        let days = {};
+
+        row.querySelectorAll(".status-input").forEach(sel => {
+            const day = sel.dataset.day; // exact date now
+            const current = sel.value || "";
+            const original = sel.dataset.original || "";
+            const extraInput = row.querySelector(`.extra-hours-input[data-day="${day}"]`);
+            const currentExtra = parseFloat(extraInput.value) || 0;
+            const originalExtra = parseFloat(extraInput.dataset.original) || 0;
+            if(current !== original || currentExtra !== originalExtra) {
+                days[day] = { status: current, extra_hours: currentExtra };
+            }
+        });
+
+        if(Object.keys(days).length > 0) {
+            data.push({
+                labor_id: laborId,
+                site_id: siteId,
+                week_start: document.getElementById("weekStartPicker").value,
+                days: days
+            });
+        }
+    });
+
+    if(data.length === 0) return alert("No changes to save");
+
+    fetch("/save_attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(res => {
+        const msg = document.getElementById("message");
+        msg.style.color = res.success ? "green" : "red";
+        msg.innerText = res.message || "Done";
+        if(res.success) {
+            document.querySelectorAll(".status-input").forEach(sel => sel.dataset.original = sel.value || "");
+            document.querySelectorAll(".extra-hours-input").forEach(inp => inp.dataset.original = inp.value || "0");
+        }
+    });
+}
+
+
+// ---------- Update Single Labor ----------
+function updateLabor(btn){
+    const row=btn.closest("tr");const laborId=row.dataset.laborId,siteId=row.dataset.siteId;
+    let days={};row.querySelectorAll(".status-input").forEach(sel=>{
+        const day=sel.dataset.day;
+        const current=sel.value||"";const original=sel.dataset.original||"";
+        const extraInput=row.querySelector(`.extra-hours-input[data-day="${day}"]`);
+        const currentExtra=parseFloat(extraInput.value)||0;
+        const originalExtra=parseFloat(extraInput.dataset.original)||0;
+        if(current!==original || currentExtra!==originalExtra){
+            days[day]={status:current,extra_hours:currentExtra,site_id:siteId};
+        }
+    });
+    if(Object.keys(days).length===0)return alert("No changes to update");
+    fetch(`/update_labor/${laborId}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({labor_id:laborId,site_id:siteId,week_start:document.getElementById("weekStartPicker").value,days:days})})
+    .then(r=>r.json()).then(res=>{
+        const msg=document.getElementById("message");msg.style.color=res.success?"green":"red";
+        msg.innerText=res.message||"Done";if(res.success){
+            row.querySelectorAll(".status-input").forEach(sel=>sel.dataset.original=sel.value||"");
+            row.querySelectorAll(".extra-hours-input").forEach(inp=>inp.dataset.original=inp.value||"0");
+        }
+    });
+}
+
+// ---------- Delete ----------
+function deleteLabor(btn){
+    if(!confirm("Delete labor?"))return;
+    const row=btn.closest("tr");fetch("/delete_labor",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({labor_id:row.dataset.laborId})})
+    .then(r=>r.json()).then(res=>{if(res.success)row.remove();alert(res.message||"Deleted");});
+}
+
+// ---------- Init ----------
+updateWeekHeader();calculateWeeklyHours();
+document.getElementById("siteSelect").addEventListener("change",e=>{window.location.href=`/attendance?site_id=${e.target.value}`;});
+function logout(){window.location.href="/login";}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

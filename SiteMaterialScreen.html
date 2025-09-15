@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Site Material Entry</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    body { padding-top: 70px; }
+    .top-bar { position: fixed; top: 0; width: 100%; z-index: 1000; }
+    .container { max-width: 500px; margin: auto; padding: 20px; }
+    .form-btn { width: 100%; margin-top: 15px; }
+</style>
+</head>
+<body>
+
+<!-- Top Navigation Bar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary top-bar">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">📦 Site Material Entry</a>
+        <div class="ms-auto d-flex align-items-center">
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/labor_register'">👷 Labor Register</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/attendance'">🗓️ Attendance</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/payment'">💵 Payment</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/site_material'">🚚 Site Materials</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/site_expenses'">💰 Site Expenses</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/reports'">📊 Reports</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/setup_site'">🏗️ Site Management</button>
+            <button class="btn btn-outline-light" onclick="logout()">🚪 Logout</button>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <form id="siteMaterialForm">
+        <div class="mb-3">
+            <label for="siteName" class="form-label">Site Name</label>
+            <select class="form-select" id="siteName" required>
+                <option value="">-- Select Site --</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="materialName" class="form-label">Material Name</label>
+            <input type="text" class="form-control" id="materialName" placeholder="Material Name" required>
+        </div>
+        <div class="mb-3">
+            <label for="quantity" class="form-label">Quantity</label>
+            <input type="number" step="0.01" class="form-control" id="quantity" placeholder="Quantity" required>
+        </div>
+        <div class="mb-3">
+            <label for="unitPrice" class="form-label">Unit Price</label>
+            <input type="number" step="0.01" class="form-control" id="unitPrice" placeholder="Unit Price" required>
+        </div>
+        <div class="mb-3">
+            <label for="remarks" class="form-label">Remarks</label>
+            <textarea class="form-control" id="remarks" placeholder="Enter remarks"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-success form-btn">💾 Save Material Entry</button>
+    </form>
+</div>
+
+<script>
+function logout() {
+    fetch("/logout", { method: "POST" })
+        .then(() => window.location.href = "/login")
+        .catch(() => window.location.href = "/login");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const form = document.getElementById("siteMaterialForm");
+    const siteSelect = document.getElementById("siteName");
+
+    // Load site names
+    fetch("/get_sites")
+        .then(res => res.json())
+        .then(data => {
+            siteSelect.innerHTML = '<option value="">-- Select Site --</option>';
+            data.forEach(site => {
+                siteSelect.innerHTML += `<option value="${site.id}">${site.name}</option>`;
+            });
+        })
+        .catch(err => console.error("Error loading sites:", err));
+
+    form.addEventListener("submit", function(e) {
+        e.preventDefault();
+
+        const siteId = siteSelect.value;
+        const materialName = document.getElementById("materialName").value.trim();
+        const quantity = parseFloat(document.getElementById("quantity").value) || 0;
+        const unitPrice = parseFloat(document.getElementById("unitPrice").value) || 0;
+        const remarks = document.getElementById("remarks").value.trim();
+
+        if (!siteId || !materialName || !quantity || !unitPrice) {
+            alert("⚠️ Please fill all required fields.");
+            return;
+        }
+
+        fetch("/save_site_material", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                site_id: siteId,
+                material_name: materialName,
+                quantity,
+                unit_price: unitPrice,
+                remarks
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                form.reset();
+                siteSelect.selectedIndex = 0;
+            } else {
+                alert("❌ " + data.message);
+            }
+        })
+        .catch(err => {
+            console.error("Error:", err);
+            alert("⚠️ Error occurred while saving entry.");
+        });
+    });
+});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

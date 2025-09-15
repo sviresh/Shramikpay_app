@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reports</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    body { padding-top: 70px; }
+    .top-bar { position: fixed; top: 0; width: 100%; z-index: 1000; }
+    .container { max-width: 900px; margin: auto; padding: 20px; }
+    .report-btn { width: 100%; margin-bottom: 15px; }
+    .overtime { background-color: #ffe5e5 !important; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<!-- Top Navigation Bar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary top-bar">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">📊 Reports</a>
+        <div class="ms-auto d-flex align-items-center">
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/labor_register'">👷 Labor Register</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/attendance'">🗓️ Attendance</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/payment'">💵 Payment</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/site_material'">🚚 Site Materials</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/site_expenses'">💰 Site Expenses</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/reports'">📊 Reports</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/setup_site'">🏗️ Site Management</button>
+            <button class="btn btn-outline-light" onclick="logout()">🚪 Logout</button>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <h3 class="mb-3">📊 Reports Dashboard</h3>
+
+    <!-- Date Range Filter -->
+    <div class="row mb-3">
+        <div class="col">
+            <input type="date" id="startDate" class="form-control">
+        </div>
+        <div class="col">
+            <input type="date" id="endDate" class="form-control">
+        </div>
+        <div class="col">
+            <button class="btn btn-primary w-100" onclick="fetchReport()">🔍 View Report</button>
+        </div>
+    </div>
+
+    <!-- Report Type Selector -->
+    <div class="mb-3">
+        <select id="reportType" class="form-select">
+            <option value="all_labor">👷 All Labor (Attendance + Payment)</option>
+            <option value="labor">💵 Labor Payments</option>
+            <option value="attendance">🗓️ Labor Attendance</option>
+            <option value="material">📦 Site Materials</option>
+            <option value="expenses">💰 Site Expenses</option>
+        </select>
+    </div>
+
+    <!-- Table -->
+    <div class="table-responsive mb-3">
+        <table class="table table-striped" id="reportTable">
+            <thead>
+                <tr id="tableHead"></tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+
+    <!-- Download Buttons -->
+    <div class="d-flex justify-content-between mb-3">
+        <button class="btn btn-success" onclick="downloadReport('csv')">Download CSV</button>
+        <button class="btn btn-danger" onclick="downloadReport('pdf')">Download PDF</button>
+    </div>
+
+    <!-- Hidden form for download -->
+    <form id="downloadForm" method="GET" action="/download_report" style="display:none;">
+        <input type="hidden" name="type" id="downloadType">
+        <input type="hidden" name="start" id="downloadStart">
+        <input type="hidden" name="end" id="downloadEnd">
+        <input type="hidden" name="format" id="downloadFormat">
+    </form>
+</div>
+
+<script>
+function logout() {
+    window.location.href = "/login";
+}
+
+function fetchReport() {
+    let type = document.getElementById('reportType').value;
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+
+    if (!startDate || !endDate) {
+        alert("Please select start and end dates!");
+        return;
+    }
+
+    // Automatically switch to 'all_labor' if combined report selected
+    if (type === "all_labor") {
+        type = "all_labor";
+    }
+
+    fetch(`/get_report?type=${encodeURIComponent(type)}&start=${startDate}&end=${endDate}`)
+    .then(res => res.json())
+    .then(data => {
+        const headRow = document.getElementById('tableHead');
+        const body = document.getElementById('tableBody');
+        headRow.innerHTML = "";
+        body.innerHTML = "";
+
+        if (data.columns && data.rows) {
+            data.columns.forEach(col => {
+                headRow.innerHTML += `<th>${col}</th>`;
+            });
+
+            data.rows.forEach(row => {
+                let tr = "<tr>";
+                row.forEach((cell, index) => {
+                    let cellHtml = cell;
+                    if (data.columns[index] === "Total Extra Hours" && parseFloat(cell) > 0) {
+                        cellHtml = `<span class="overtime">${cell}</span>`;
+                    }
+                    tr += `<td>${cellHtml}</td>`;
+                });
+                tr += "</tr>";
+                body.innerHTML += tr;
+            });
+        } else {
+            body.innerHTML = "<tr><td colspan='20'>No data found</td></tr>";
+        }
+    })
+    .catch(err => console.error(err));
+}
+
+// ===== DOWNLOAD FIX =====
+async function downloadReport(fmt) {
+    let type = document.getElementById("reportType").value;
+    const start = document.getElementById("startDate").value;
+    const end = document.getElementById("endDate").value;
+
+    if (!start || !end) {
+        alert("Please select start and end dates!");
+        return;
+    }
+
+    // Construct query
+    const url = `/download_report?type=${encodeURIComponent(type)}&start=${start}&end=${end}&format=${fmt}`;
+
+    try {
+        const res = await fetch(url);
+        if (!res.ok) {
+            throw new Error("Download failed");
+        }
+
+        // Convert to blob
+        const blob = await res.blob();
+        const link = document.createElement("a");
+        link.href = window.URL.createObjectURL(blob);
+        link.download = `${type}_${start}_${end}.${fmt}`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    } catch (err) {
+        console.error("Download error:", err);
+        alert("Failed to download report.");
+    }
+}
+
+</script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

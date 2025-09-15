@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShramikPay - Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    <div class="container d-flex justify-content-center align-items-center" style="height: 100vh;">
+        <div class="card shadow p-4 rounded-4" style="width: 360px;">
+            <h4 class="text-center mb-3 fw-bold text-primary">ShramikPay</h4>
+            
+            <!-- Alert messages -->
+            <div id="loginAlert"></div>
+
+            <form id="loginForm">
+                <div class="mb-3">
+                    <label for="client_code" class="form-label">Client Code</label>
+                    <input type="text" name="client_code" id="client_code" class="form-control text-uppercase" required>
+                </div>
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" name="username" id="username" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" name="password" id="password" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Login</button>
+            </form>
+
+            <!-- Forgot Password link -->
+            <div class="text-center mt-3">
+                <a href="/forgot_password" class="text-decoration-none small">Forgot Password?</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const form = document.getElementById("loginForm");
+        const alertBox = document.getElementById("loginAlert");
+        const clientInput = document.getElementById("client_code");
+
+        // 🔹 If backend sets demo mode, lock input
+        const isDemo = "{{ is_demo|default(0) }}";
+        if (isDemo === "1" || isDemo === "true" || isDemo === "True") {
+            clientInput.value = "DEMO";  // more user-friendly
+            clientInput.readOnly = true;
+        }
+
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            alertBox.innerHTML = "";
+
+            const client_code = clientInput.value.trim().toUpperCase();
+            const username = document.getElementById("username").value.trim();
+            const password = document.getElementById("password").value.trim();
+
+            const res = await fetch("/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `client_code=${encodeURIComponent(client_code)}&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+            });
+
+            if (res.redirected) {
+                window.location.href = res.url;
+                return;
+            }
+
+            const text = await res.text();
+            alertBox.innerHTML = `<div class="alert alert-danger py-2 small">${text}</div>`;
+        });
+    });
+    </script>
+</body>
+</html>

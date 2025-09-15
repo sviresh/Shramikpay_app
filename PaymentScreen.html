@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment & Advance</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<style>
+body { padding-top: 70px; }
+.top-bar { position: fixed; top:0; width:100%; z-index:1000; }
+.container { max-width: 1250px; margin:auto; padding:20px; }
+table.payment-table { width:100%; table-layout:fixed; }
+table.payment-table th, table.payment-table td { text-align:center; vertical-align:middle; border:1px solid #dee2e6; padding:6px 8px; }
+.btn-generate { display:block; margin: 12px auto; width: 240px; }
+.scrollable-table { max-height: 60vh; overflow-y:auto; }
+.sticky-header thead th { position: sticky; top:0; background:#f8f9fa; z-index:2; }
+.w-140 { width:140px; }
+#message { text-align:center; font-weight:bold; margin-top:10px; }
+</style>
+</head>
+<body>
+
+<!-- Top Navigation -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary top-bar">
+<div class="container-fluid">
+  <a class="navbar-brand" href="#">💵 Payment & Advance</a>
+  <div class="ms-auto d-flex align-items-center">
+    <button class="btn btn-outline-light me-2" onclick="window.location.href='/labor_register'">👷 Labor Register</button>
+    <button class="btn btn-outline-light me-2" onclick="window.location.href='/attendance'">🗓️ Attendance</button>
+    <button class="btn btn-outline-light me-2" onclick="window.location.href='/payment'">💵 Payment</button>
+    <button class="btn btn-outline-light me-2" onclick="window.location.href='/site_material'">🚚 Site Materials</button>
+    <button class="btn btn-outline-light me-2" onclick="window.location.href='/site_expenses'">💰 Site Expenses</button>
+    <button class="btn btn-outline-light me-2" onclick="window.location.href='/reports'">📊 Reports</button>
+    <button class="btn btn-outline-light me-2" onclick="window.location.href='/setup_site'">🏗️ Site Management</button>
+    <button class="btn btn-outline-light" onclick="logout()">🚪 Logout</button>
+  </div>
+</div>
+</nav>
+
+<div class="container">
+
+<!-- Filters -->
+<div class="row g-2 align-items-end mb-3">
+  <div class="col-md-3">
+    <label class="form-label mb-1">Start date</label>
+    <input type="date" id="start_date" class="form-control">
+  </div>
+  <div class="col-md-3">
+    <label class="form-label mb-1">End date</label>
+    <input type="date" id="end_date" class="form-control">
+  </div>
+  <div class="col-md-3">
+    <button class="btn btn-primary w-100" onclick="loadPayments()">Filter</button>
+  </div>
+  <div class="col-md-3">
+    <div class="d-flex gap-2 justify-content-end flex-wrap">
+      <button class="btn btn-outline-secondary btn-sm" onclick="quickRange(7)">Last 7d</button>
+      <button class="btn btn-outline-secondary btn-sm" onclick="quickRange(15)">15d</button>
+      <button class="btn btn-outline-secondary btn-sm" onclick="quickRange(30)">30d</button>
+      <button class="btn btn-outline-secondary btn-sm" onclick="thisWeek()">This Week</button>
+      <button class="btn btn-outline-secondary btn-sm" onclick="thisMonth()">This Month</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-3" id="paymentTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab_advance" type="button">Advance</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab_payment" type="button">Payments</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab_remaining" type="button">Remaining</button>
+  </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content">
+  <div class="tab-pane fade show active" id="tab_advance">
+    <div class="scrollable-table">
+      <table class="table payment-table table-bordered sticky-header">
+        <thead class="table-light">
+          <tr>
+            <th>Labor Name</th>
+            <th>Site</th>
+            <th class="w-140">Week Start</th>
+            <th>Total Hours</th>
+            <th>Advance Given</th>
+            <th>Advance Deduction</th>
+            <th>Remaining Advance</th>
+            <th>Remarks</th>
+          </tr>
+        </thead>
+        <tbody id="advance_box"></tbody>
+      </table>
+    </div>
+    <div class="text-center mt-3">
+      <button class="btn btn-success" onclick="generatePayment()">💾 Save Advances</button>
+      <div id="message"></div>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="tab_payment">
+    <div class="scrollable-table">
+      <table class="table payment-table table-bordered sticky-header">
+        <thead class="table-light">
+          <tr>
+            <th>Labor Name</th>
+            <th>Site</th>
+            <th class="w-140">Week Start</th>
+            <th>Total Hours</th>
+            <th>Wages Paid</th>
+            <th>Wages After Deduction</th>
+            <th>Remarks</th>
+          </tr>
+        </thead>
+        <tbody id="payment_box"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="tab_remaining">
+    <div class="scrollable-table">
+      <table class="table payment-table table-bordered sticky-header">
+        <thead class="table-light">
+          <tr>
+            <th>Labor Name</th>
+            <th>Site</th>
+            <th class="w-140">Week Start</th>
+            <th>Total Hours</th>
+            <th>Remaining Advance</th>
+            <th>Preview After Save</th>
+          </tr>
+        </thead>
+        <tbody id="remaining_box"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+function loadPayments() {
+  const start = document.getElementById("start_date").value;
+  const end = document.getElementById("end_date").value;
+
+  if (!start || !end) {
+    alert("Please select both start and end dates.");
+    return;
+  }
+
+  fetch(`/payments_summary?start=${start}&end=${end}&format=json`)
+    .then(res => res.json())
+    .then(data => {
+      renderAdvance(data);
+      renderPayment(data);
+      renderRemaining(data);
+    })
+    .catch(err => {
+      console.error("Error loading payments:", err);
+      alert("Failed to load payments.");
+    });
+}
+
+function quickRange(days) {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - days);
+  document.getElementById("start_date").value = start.toISOString().split("T")[0];
+  document.getElementById("end_date").value = end.toISOString().split("T")[0];
+  loadPayments();
+}
+
+function thisWeek() {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const start = new Date(now.setDate(diff));
+  const end = new Date();
+  document.getElementById("start_date").value = start.toISOString().split("T")[0];
+  document.getElementById("end_date").value = end.toISOString().split("T")[0];
+  loadPayments();
+}
+
+function thisMonth() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  document.getElementById("start_date").value = start.toISOString().split("T")[0];
+  document.getElementById("end_date").value = end.toISOString().split("T")[0];
+  loadPayments();
+}
+
+window.onload = thisMonth;
+
+function renderAdvance(rows){
+  const box=document.getElementById("advance_box"); box.innerHTML="";
+  rows.forEach(r=>{
+    const tr=document.createElement("tr");
+    tr.dataset.laborId = r.labor_id;
+    tr.dataset.siteId = r.site_id;
+    tr.dataset.weekStart = r.week_start || '';
+    tr.innerHTML = `<td>${r.labor_name||''}</td>
+      <td>${r.site_name||''}</td>
+      <td>${r.week_start||''}</td>
+      <td>${Number(r.total_hours||0).toFixed(2)}</td>
+      <td><input type="number" class="form-control form-control-sm advance" value="${r.advance||0}"></td>
+      <td><input type="number" class="form-control form-control-sm advance_deduction" value="${r.advance_deduction||0}"></td>
+      <td class="remaining_adv_display">${Number(r.remaining_advance||0).toFixed(2)}</td>
+      <td><input type="text" class="form-control form-control-sm remarks" value="${r.remarks||''}"></td>`;
+    box.appendChild(tr);
+  });
+}
+
+function renderPayment(rows){
+  const box=document.getElementById("payment_box"); box.innerHTML="";
+  rows.forEach(r=>{
+    const tr=document.createElement("tr");
+    tr.dataset.laborId = r.labor_id;
+    tr.dataset.siteId = r.site_id;
+    tr.dataset.weekStart = r.week_start || '';
+    tr.innerHTML = `<td>${r.labor_name||''}</td>
+      <td>${r.site_name||''}</td>
+      <td>${r.week_start||''}</td>
+      <td>${Number(r.total_hours||0).toFixed(2)}</td>
+      <td><input type="number" class="form-control form-control-sm payment" value="${r.payment||0}"></td>
+      <td>${Number(r.payment_after_deduction||0).toFixed(2)}</td>
+      <td><input type="text" class="form-control form-control-sm remarks" value="${r.remarks||''}"></td>`;
+    box.appendChild(tr);
+  });
+}
+
+function renderRemaining(rows){
+  const box=document.getElementById("remaining_box"); box.innerHTML="";
+  rows.forEach(r=>{
+    const tr=document.createElement("tr");
+    tr.dataset.laborId = r.labor_id;
+    tr.dataset.siteId = r.site_id;
+    tr.dataset.weekStart = r.week_start || '';
+    tr.dataset.dbRemaining = r.remaining_advance || 0;
+    tr.innerHTML = `<td>${r.labor_name||''}</td>
+      <td>${r.site_name||''}</td>
+      <td>${r.week_start||''}</td>
+      <td>${Number(r.total_hours||0).toFixed(2)}</td>
+      <td class="remaining_val">${Number(r.remaining_advance||0).toFixed(2)}</td>
+      <td class="remaining_val_preview">${Number(r.remaining_advance||0).toFixed(2)}</td>`;
+    box.appendChild(tr);
+  });
+
+  document.querySelectorAll("#advance_box input, #payment_box input").forEach(input => {
+    input.oninput = updateRemainingPreview;
+  });
+}
+
+function updateRemainingPreview(){
+  document.querySelectorAll("#remaining_box tr").forEach(tr=>{
+    const adv = Number(document.querySelector(`#advance_box tr[data-labor-id="${tr.dataset.laborId}"][data-site-id="${tr.dataset.siteId}"][data-week-start="${tr.dataset.weekStart}"] .advance`)?.value || 0);
+    const ded = Number(document.querySelector(`#advance_box tr[data-labor-id="${tr.dataset.laborId}"][data-site-id="${tr.dataset.siteId}"][data-week-start="${tr.dataset.weekStart}"] .advance_deduction`)?.value || 0);
+    const preview = adv - ded;
+    tr.querySelector(".remaining_val_preview").textContent = preview.toFixed(2);
+  });
+}
+
+const ALLOWED_SITES = {{ site_ids|tojson }}; // pass from Flask
+
+function generatePayment(){
+  const payments = [];
+
+  document.querySelectorAll("#advance_box tr").forEach(tr=>{
+    const site_id = Number(tr.dataset.siteId);
+    if(ALLOWED_SITES.length > 0 && !ALLOWED_SITES.includes(site_id)) return;
+
+    const advance = Number(tr.querySelector(".advance").value||0);
+    const advance_deduction = Number(tr.querySelector(".advance_deduction").value||0);
+    const remarks = tr.querySelector(".remarks").value.trim();
+
+    // Skip if no changes
+    if(advance === 0 && advance_deduction === 0 && remarks === "") return;
+
+    payments.push({
+      labor_id: tr.dataset.laborId,
+      site_id: site_id,
+      week_start: tr.dataset.weekStart,
+      advance: advance,
+      advance_deduction: advance_deduction,
+      remaining_advance: advance - advance_deduction,
+      remarks: remarks,
+      payment: 0   // placeholder (will update if payment exists)
+    });
+  });
+
+  document.querySelectorAll("#payment_box tr").forEach(tr=>{
+    const site_id = Number(tr.dataset.siteId);
+    if(ALLOWED_SITES.length > 0 && !ALLOWED_SITES.includes(site_id)) return;
+
+    const paymentVal = Number(tr.querySelector(".payment").value||0);
+    const rmk = tr.querySelector(".remarks").value.trim();
+
+    // Skip if nothing entered
+    if(paymentVal === 0 && rmk === "") return;
+
+    // Find if this row already exists in payments[]
+    let match = payments.find(
+      p => p.labor_id===tr.dataset.laborId &&
+           p.site_id===site_id &&
+           p.week_start===tr.dataset.weekStart
+    );
+
+    if(match){
+      if(paymentVal > 0) match.payment = paymentVal;
+      if(rmk) match.remarks = rmk; // override remarks if provided in payment tab
+    } else {
+      // Only push if not already in advance_box
+      payments.push({
+        labor_id: tr.dataset.laborId,
+        site_id: site_id,
+        week_start: tr.dataset.weekStart,
+        advance: 0,
+        advance_deduction: 0,
+        remaining_advance: 0,
+        payment: paymentVal,
+        remarks: rmk
+      });
+    }
+  });
+
+  if(payments.length === 0){
+    const msg = document.getElementById("message");
+    msg.style.color = "orange";
+    msg.innerText = "No changes to save.";
+    return;
+  }
+
+  fetch("/save_payment",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({payments})
+  })
+  .then(r=>r.json())
+  .then(res=>{
+    const msg = document.getElementById("message");
+    msg.style.color = res.success ? "green" : "red";
+    msg.innerText = res.success ? res.message : ("Error: "+res.error);
+    if(res.success) loadPayments();
+  })
+  .catch(err=>{
+    const msg = document.getElementById("message");
+    msg.style.color="red";
+    msg.innerText="Error saving: "+err;
+  });
+}
+
+
+
+function logout(){ window.location.href="/login"; }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

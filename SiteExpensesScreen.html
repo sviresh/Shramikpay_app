@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Site Expenses</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    body { padding-top: 70px; }
+    .top-bar { position: fixed; top: 0; width: 100%; z-index: 1000; }
+    .container { max-width: 500px; margin: auto; padding: 20px; }
+    .form-btn { width: 100%; margin-top: 15px; }
+</style>
+</head>
+<body>
+
+<!-- Top Navigation Bar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary top-bar">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">💰 Site Expenses</a>
+        <div class="ms-auto d-flex align-items-center">
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/labor_register'">👷 Labor Register</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/attendance'">🗓️ Attendance</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/payment'">💵 Payment</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/site_material'">🚚 Site Materials</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/site_expenses'">💰 Site Expenses</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/reports'">📊 Reports</button>
+            <button class="btn btn-outline-light me-2" onclick="window.location.href='/setup_site'">🏗️ Site Management</button>
+            <button class="btn btn-outline-light" onclick="logout()">🚪 Logout</button>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <form id="siteExpensesForm">
+        <input type="hidden" id="expenseId"> <!-- ✅ hidden ID for update -->
+
+        <div class="mb-3">
+            <label for="siteName" class="form-label">Site Name</label>
+            <select class="form-select" id="siteName" required>
+                <option value="">-- Select Site --</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="expenseType" class="form-label">Expense Type</label>
+            <input type="text" class="form-control" id="expenseType" placeholder="Transport, Diesel, etc." required>
+        </div>
+        <div class="mb-3">
+            <label for="amount" class="form-label">Amount</label>
+            <input type="number" step="0.01" class="form-control" id="amount" placeholder="Amount" required>
+        </div>
+        <div class="mb-3">
+            <label for="remarks" class="form-label">Remarks</label>
+            <input type="text" class="form-control" id="remarks" placeholder="Remarks">
+        </div>
+        <button type="submit" class="btn btn-success form-btn">💾 Save Expense</button>
+    </form>
+</div>
+
+<script>
+function logout() {
+    fetch("/logout", { method: "POST" })
+        .then(() => window.location.href = "/login")
+        .catch(() => window.location.href = "/login");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const siteSelect = document.getElementById("siteName");
+    const form = document.getElementById("siteExpensesForm");
+
+    // ✅ Load site names from backend
+fetch("/get_sites")
+    .then(res => res.json())
+    .then(data => {
+        if (Array.isArray(data)) {   // because /get_sites now returns a list
+            data.forEach(site => {
+                const option = document.createElement("option");
+                option.value = site.id;          // ✅ site_id
+                option.textContent = site.name;  // ✅ site_name for display
+                siteSelect.appendChild(option);
+            });
+        } else if (data.sites) { // fallback if wrapped in {sites: [...]}
+            data.sites.forEach(site => {
+                const option = document.createElement("option");
+                option.value = site.id;
+                option.textContent = site.name;
+                siteSelect.appendChild(option);
+            });
+        }
+    })
+    .catch(err => console.error("Error loading sites:", err));
+
+// ✅ Form submission (Insert or Update)
+form.addEventListener("submit", function(e) {
+    e.preventDefault();
+
+    const expenseId = document.getElementById("expenseId").value;
+    const siteId = siteSelect.value;  // ✅ use ID
+    const expenseType = document.getElementById("expenseType").value.trim();
+    const amount = parseFloat(document.getElementById("amount").value) || 0;
+    const remarks = document.getElementById("remarks").value.trim();
+
+    if (!siteId || !expenseType || !amount) {
+        alert("⚠️ Please fill all required fields.");
+        return;
+    }
+
+    fetch("/save_site_expense", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",   // ✅ send cookies/session
+    body: JSON.stringify({
+        id: expenseId || null,
+        site_id: siteId,
+        expense_type: expenseType,
+        amount,
+        remarks
+    })
+})
+.then(res => res.json())
+.then(data => {
+    if (data.success) {
+        alert("✅ " + data.message);
+        form.reset();
+        siteSelect.selectedIndex = 0;
+        document.getElementById("expenseId").value = "";
+    } else {
+        alert("❌ Failed to save expense: " + (data.message || ""));
+    }
+})
+.catch(err => {
+    console.error("Error:", err);
+    alert("⚠️ Error occurred while saving expense.");
+});
+
+});
+
+});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
